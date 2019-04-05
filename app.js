@@ -2,6 +2,7 @@ const express = require('express');
 const path = require('path');
 const morgan = require('morgan');
 var multer = require('multer');
+var ejs = require('ejs')
 // For password encryption
 const bcrypt = require('bcrypt');
 var bodyParser = require('body-parser')
@@ -11,8 +12,14 @@ var jwt = require('jsonwebtoken');
 var secret = 'supersecret';
 
 var sequelize = require('sequelize');
+// Image upload destination
+var upload = multer({ dest: 'images/' })
+
 // create our Express app
 const app = express();
+app.set('view engine', 'ejs')
+app.use(express.static('/images'))
+// app.use(bodyParser);
 // serves up static files from the public folder. Anything in public/ will just be served up as the file it is
 app.use(express.static(path.join(__dirname, 'public')));
 //logger
@@ -26,8 +33,8 @@ app.use(bodyParser.json());
 // load models
 var Admin = require('./data/models/admin'); 
 var Category = require('./data/models/categories'); 
-console.log('Category')
-console.log(Category)
+var Service = require('./data/models/services'); 
+var ServiceType = require('./data/models/service_type'); 
 
 app.get('/hello', (req,res)=>{
 	res.send({msg:'Hello World  Checking'})
@@ -83,24 +90,26 @@ function loginMiddleware(req,res,next) {
 	next()
 }
 
-var upload = multer({ dest: 'images/' })
 
 // Upload general image
-app.post('/uploadfile', upload.single('image'), function(req, res) {
+app.post('/uploadfile', upload.single('image_url'), function(req,res) {
+	if (req.file) {
+		console.log('In Func')
+	}
 	console.log('req')
-	console.log(req.body)
-	console.log(req.file.path)
-	res.send(req.body)
+	console.log(req.file)
+	res.send(req.file)
 })
 
+// CATEGORY
 // Create the category from admin
-app.post('/newCategory',upload.single('image'),async(req,res) =>{
+app.post('/newCategory',upload.single('image_url'),async(req,res) =>{
 	console.log('in cat')
 	if (req.headers.token) {
 		// return req.headers.token
 		let checkCat = await Category.findOne({where:{name:req.query.name}})
 		console.log(checkCat)
-		// if (checkCat !== null) {
+		if (checkCat === null) {
 			console.log('in not null func')
 			// Image upload
 			if (req.file) {
@@ -116,13 +125,109 @@ app.post('/newCategory',upload.single('image'),async(req,res) =>{
 				}
 			}
 			
-		// }
-		// else{
-			// res.status(200).send({message:'Already Available'})
-		// }
+		}
+		else{
+			res.status(200).send({message:'Already Available'})
+		}
 	}
 	else{
 		res.send('Provide token')
+	}
+})
+
+// All Category List
+app.get('/allCategory',async(req,res) => {
+	// if (req.headers.token) {
+		let getAllCat = await Category.findAll({attributes:['id','name','image_url']})
+		res.send({details:getAllCat})
+	// }
+	// else{
+		// res.send('Provide token')
+	// }
+})
+
+// Create Services link to category from admin
+app.post('/newService',async(req,res) => {
+	if (req.headers.token) {
+		if (req.query.categoryId) {
+			let checkService = await Service.findOne({where:{name:req.query.name}})
+			if (checkService === null) {
+				let newServ = await Service.create({categories_id:req.query.categoryId,name:req.query.name,desc:req.query.desc,image_url:req.query.image_url})
+				if (newServ) {
+					let fetchServ = await Service.findOne({where:{name:newServ.name}})
+					res.status(200).send({details:fetchServ})
+				}else{
+					res.status(500).send({message:"Something went wrong"})
+				}
+			}
+
+		}
+		else{
+			res.send({message:"Please select an category to add service"})
+		}
+
+	}
+	else{
+		res.send('Provide token')
+	}
+})
+
+// Single Category List with details and its services
+app.get('/oneCategoryService',async(req,res) => {
+	// if (req.headers.token) {
+		if (req.query.categoryId) {
+			let getCat = await Category.findOne({where:{id: req.query.categoryId},attributes:['id','name','image_url','desc']})
+			if (getCat) {
+				let getAllServ = await Service.findAll({where:{categories_id: req.query.categoryId},attributes:['id','name','image_url']})
+				// let result = getCat.push(getAllServ)
+				// console.log(result)
+				// res.send(result)
+				let hashCat = {}
+				hashCat['category'] = getCat
+				hashCat['service'] = getAllServ
+				res.send(hashCat)
+			}
+		}else{
+			res.send({message:"Please provide category Id"})
+		}
+	// }else{
+		// res.send('Provide token')
+	// }
+})
+
+// Create Service Type link to services from admin
+app.post('/newServiceType',async(req,res) => {
+	if (req.headers.token) {
+		if (req.query.serviceId) {
+			let newServType = await ServiceType.create({service_id:req.query.serviceId,name:req.query.name,price:req.query.price})
+			if (newServType) {
+				let fetchServType = await ServiceType.findOne({where:{name:newServType.name}})
+				res.status(200).send({details:fetchServType})
+			}
+			else{
+				res.status(500).send({message:"Something went wrong"})
+			}
+		}
+
+	}
+	else{
+		res.send('Provide token')
+	}
+})
+
+// Single  Service List
+app.get('/oneService',async(req,res) => {
+	if (req.query.serviceId) {
+		let getServ = await Service.findOne({where:{id:req.query.serviceId}})
+		if (getServ) {
+			let getServType = await ServiceType.findAll({where:{service_id:req.query.serviceId}})
+			let hashServ = {}
+			hashServ['service'] = getServ
+			hashServ['service_type'] = getServType
+			res.send(hashServ)
+		}
+	}else{
+		res.send({message:"Please provide service id"})
 	}
 })
 
