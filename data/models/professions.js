@@ -1,7 +1,7 @@
 const DataTypes = require('sequelize');
 const sequelize = require('../sequelize');
 
-const Customer = sequelize.define('customers',{
+const Profession = sequelize.define('professions',{
 	id:{
 		type: DataTypes.INTEGER(11),
 		allowNull: false,
@@ -14,25 +14,25 @@ const Customer = sequelize.define('customers',{
 		primaryKey: false,
 		// autoIncrement: true
 	},
-	email:{
-		type: DataTypes.STRING(100),
-		allowNull: false,
-		primaryKey: false,
-		// autoIncrement: true
-	},
-	password:{
-		type: DataTypes.STRING(100),
-		allowNull: false,
-		primaryKey: false,
-		// autoIncrement: true
-	},
 	phoneno:{
-		type: DataTypes.STRING(100),
+		type: DataTypes.STRING(11),
 		allowNull: false,
 		primaryKey: false,
 		// autoIncrement: true
 	},
-	image_url:{
+	services_known:{
+		type: DataTypes.STRING(500),
+		allowNull: true,
+		primaryKey: false,
+		// autoIncrement: true
+	},
+	// service_id:{
+	// 	type: DataTypes.INTEGER(11),
+	// 	allowNull: true,
+	// 	primaryKey: false,
+	// 	autoIncrement: false
+	// },
+	city:{
 		type: DataTypes.STRING(100),
 		allowNull: true,
 		primaryKey: false,
@@ -43,12 +43,11 @@ const Customer = sequelize.define('customers',{
       allowNull: false,
       defaultValue: '1'
     },
-    is_email_verify: {
+    is_verify: {
       type: DataTypes.INTEGER(1),
       allowNull: false,
       defaultValue: '1'
-    },
-
+    }
 });
 
-module.exports = Customer;
+module.exports = Profession;

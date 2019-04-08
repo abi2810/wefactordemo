@@ -33,8 +33,13 @@ app.use(bodyParser.json());
 // load models
 var Admin = require('./data/models/admin'); 
 var Category = require('./data/models/categories'); 
+var Customer = require('./data/models/customers'); 
 var Service = require('./data/models/services'); 
 var ServiceType = require('./data/models/service_type'); 
+var Profession = require('./data/models/professions');
+var Order = require('./data/models/orders');
+var ProfessionOrder = require('./data/models/profession_order');
+var ProfessionService = require('./data/models/profession_service');
 
 app.get('/hello', (req,res)=>{
 	res.send({msg:'Hello World  Checking'})
@@ -91,6 +96,72 @@ function loginMiddleware(req,res,next) {
 }
 
 
+//  Customer Signup
+app.post('/customersignup',upload.single('image_url'),async(req,res) => {
+	const body = req.body
+	if (req.file) {
+		let filename = req.file.path
+		let hashedPassword = bcrypt.hashSync(req.body.password,8)
+		let customer = await Customer.create({name: req.body.name, email: req.body.email, password: hashedPassword,phoneno: req.body.phoneno,image_url: filename})
+		if(customer){
+			let token = jwt.sign({id:customer.id}, secret, {expiresIn: 86400})
+			res.status(200).send({auth: true, token: token});
+		}else{
+			res.status(500).send({auth: false, message: "There was a problem registering the user"});
+		}
+	}
+	else{
+		let hashedPassword = bcrypt.hashSync(req.body.password,8)
+		let customer = await Customer.create({name: req.body.name, email: req.body.email, password: hashedPassword,phoneno: req.body.phoneno})
+		if(customer){
+			let token = jwt.sign({id:customer.id}, secret, {expiresIn: 86400})
+			res.status(200).send({auth: true, token: token});
+		}else{
+			res.status(500).send({auth: false, message: "There was a problem registering the user"});
+		}
+	}
+	
+})
+
+// Customer Login
+app.post('/customerlogin', async(req,res) => {
+	if (req.body.email && req.body.password) 
+	{
+		const checkcustomer = await Customer.findOne({where: {email: req.body.email}})
+		if (!checkcustomer) { res.status(404).send({auth: false, message: "No user found"})}
+		var passwordIsValid = bcrypt.compareSync(req.body.password, checkcustomer.password)
+		if (!passwordIsValid) { res.status(401).send({auth: false, message:"Check your password",token: null})}
+		var token = jwt.sign({id: checkcustomer.id}, secret, { expiresIn: 86400 })
+		res.status(200).send({auth: true, message:"Login success", token: token})
+	}
+	else{
+		res.status(400).send({message:"Please provide the required parameters to login."})
+	}
+	
+})
+
+//  Professions Signup
+app.post('/professionsignup',async(req,res) => {
+	let profe = await Profession.create({name: req.body.name,phoneno: req.body.phoneno,services_known: req.body.services_known,city:"Chennai"})
+		if(profe){
+			console.log(req.body.services_known.split(','))
+			let serv = req.body.services_known.split(',')
+			let loopServ = serv.map(async(li) =>{
+				let servId = await Service.findOne({where:{name:li},attributes:['id']})
+				// console.log(servId)
+				let putServId = await ProfessionService.create({profession_id:profe.id,service_id:servId.id})
+			})
+			Promise.all(loopServ)
+			// let getServiceId = await Service.findAll({where:{name:}})
+			// let token = jwt.sign({id:customer.id}, secret, {expiresIn: 86400})
+			res.status(200).send({auth: true, message:"Thank you for signing up!"});
+		}else{
+			res.status(500).send({auth: false, message: "There was a problem registering the user"});
+		}
+	
+})
+
+
 // Upload general image
 app.post('/uploadfile', upload.single('image_url'), function(req,res) {
 	if (req.file) {
@@ -137,13 +208,15 @@ app.post('/newCategory',upload.single('image_url'),async(req,res) =>{
 
 // All Category List
 app.get('/allCategory',async(req,res) => {
-	// if (req.headers.token) {
+	if (req.headers.token) {
 		let getAllCat = await Category.findAll({attributes:['id','name','image_url']})
 		res.send({details:getAllCat})
-	// }
-	// else{
+	}
+	else{
+		let getAllCat = await Category.findAll({attributes:['id','name','image_url']})
+		res.send({details:getAllCat})
 		// res.send('Provide token')
-	// }
+	}
 })
 
 // Create Services link to category from admin
@@ -174,25 +247,47 @@ app.post('/newService',async(req,res) => {
 
 // Single Category List with details and its services
 app.get('/oneCategoryService',async(req,res) => {
-	// if (req.headers.token) {
+	if (req.headers.token) {
 		if (req.query.categoryId) {
 			let getCat = await Category.findOne({where:{id: req.query.categoryId},attributes:['id','name','image_url','desc']})
 			if (getCat) {
 				let getAllServ = await Service.findAll({where:{categories_id: req.query.categoryId},attributes:['id','name','image_url']})
-				// let result = getCat.push(getAllServ)
-				// console.log(result)
-				// res.send(result)
+				// Professional details
+				let service_id = getAllServ.map(x => x.id)
+				let getProfServ = await ProfessionService.findAll({where:{service_id:{$in: service_id }}})
+				let profession_id = getProfServ.map(x => x.profession_id)
+				console.log(profession_id)
+				let profDet = await Profession.findAll({where:{id: profession_id}})
 				let hashCat = {}
 				hashCat['category'] = getCat
 				hashCat['service'] = getAllServ
+				hashCat['professionals'] = profDet
 				res.send(hashCat)
 			}
 		}else{
 			res.send({message:"Please provide category Id"})
 		}
-	// }else{
-		// res.send('Provide token')
-	// }
+	}else{
+		if (req.query.categoryId) {
+			let getCat = await Category.findOne({where:{id: req.query.categoryId},attributes:['id','name','image_url','desc']})
+			if (getCat) {
+				// Service Details
+				let getAllServ = await Service.findAll({where:{categories_id: req.query.categoryId},attributes:['id','name','image_url']})
+				// Professional details
+				let service_id = getAllServ.map(x => x.id)
+				let getProfServ = await ProfessionService.findAll({where:{service_id:{$in: service_id }}})
+				let profession_id = getProfServ.map(x => x.id)
+				let profDet = await Profession.findAll({where:{id: profession_id}})
+				let hashCat = {}
+				hashCat['category'] = getCat
+				hashCat['service'] = getAllServ
+				hashCat['professionals'] = profDet
+				res.send(hashCat)
+			}
+		}else{
+			res.send({message:"Please provide category Id"})
+		}
+	}
 })
 
 // Create Service Type link to services from admin
@@ -217,18 +312,96 @@ app.post('/newServiceType',async(req,res) => {
 
 // Single  Service List
 app.get('/oneService',async(req,res) => {
-	if (req.query.serviceId) {
-		let getServ = await Service.findOne({where:{id:req.query.serviceId}})
-		if (getServ) {
-			let getServType = await ServiceType.findAll({where:{service_id:req.query.serviceId}})
-			let hashServ = {}
-			hashServ['service'] = getServ
-			hashServ['service_type'] = getServType
-			res.send(hashServ)
+	if (req.headers.token) {
+		if (req.query.serviceId) {
+			let getServ = await Service.findOne({where:{id:req.query.serviceId}})
+			if (getServ) {
+				let getServType = await ServiceType.findAll({where:{service_id:req.query.serviceId}})
+				let hashServ = {}
+				hashServ['service'] = getServ
+				hashServ['service_type'] = getServType
+				res.send(hashServ)
+			}
+		}else{
+			res.send({message:"Please provide service id"})
 		}
+	}
+	else{
+		if (req.query.serviceId) {
+			let getServ = await Service.findOne({where:{id:req.query.serviceId}})
+			if (getServ) {
+				let getServType = await ServiceType.findAll({where:{service_id:req.query.serviceId}})
+				let hashServ = {}
+				hashServ['service'] = getServ
+				hashServ['service_type'] = getServType
+				res.send(hashServ)
+			}
+		}else{
+			res.send({message:"Please provide service id"})
+		}
+	}
+	
+})
+
+// Make an Order - Add to Cart
+app.post('/addtocart',async(req,res) => {
+	if (req.headers.token) {
+		let customerId = jwt.verify(req.headers.token,secret)
+		let getCustomer = await Customer.findOne({where:{id: customerId.id,is_active:1,is_email_verify:1}})
+		console.log(getCustomer)
+		let newOrder = await Order.create({service_id: req.query.serviceId,service_type_id: req.query.serviceTypeId,customer_id: customerId.id})
+		if (newOrder) {
+			let fetchOrder = await Order.findOne({where:{id: newOrder.id}})
+			if (fetchOrder && req.query.professionId) {
+				let checkProf = await Profession.findOne({where:{id:req.query.professionId}})
+				if (checkProf) {
+					let sheduleProf = await ProfessionOrder.create({order_id:newOrder.id,profession_id:req.query.professionId})
+					if (sheduleProf) {
+						let updateOrder = await Order.update({status:"Professional is scheduled for your request"},{where:{id: newOrder.id}})
+						let updateProf = await ProfessionOrder.update({status:"Scheduled"},{where:{id: sheduleProf.id}})
+					}else{
+						res.send({message:"Problem in scheduling"})
+					}
+				}else{
+					res.send({message:"No Professional is available!"})
+				}
+				
+			}
+			res.send({details:fetchOrder})
+
+		}
+		// res.send({details:getCustomer})
+		// let token = jwt.sign({id:customer.id}, secret, {expiresIn: 86400})
 	}else{
-		res.send({message:"Please provide service id"})
+		res.send({message:"Please LogIn to continue!"})
 	}
 })
+
+// Cart List
+app.get('/myCart',async(req,res) =>{
+	if (req.headers.token) {
+		let getCustomer = jwt.verify(req.headers.token,secret) 
+		let customer_id = getCustomer.id
+		let cartDet = await Order.findAll({where:{customer_id:customer_id,status:"Professional is scheduled for your request"}})
+		
+		let loopCart = await cartDet.map(async(li) => {
+			// let hashDet = {}
+
+			// console.log(li.dataValues['service_name'] = "Abc")
+			let getServname = await Service.findOne({where:{id: li.service_id},attributes:['name']})
+			// console.log('getServname')
+			// console.log(getServname.name)
+			let getServType = await ServiceType.findOne({where:{id:li.service_type_id},attributes:['name','price']})
+			li.dataValues['service_name'] = getServname.name
+			li.dataValues['service_type'] = getServType.name
+			li.dataValues['price'] = getServType.price
+			// cartDet.push(hashDet)
+			console.log(cartDet)
+		})
+		let loopResponse = await Promise.all(loopCart)
+		res.send({details:cartDet})
+	}
+})
+
 
 module.exports = app;

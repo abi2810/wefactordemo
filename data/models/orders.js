@@ -1,38 +1,38 @@
 const DataTypes = require('sequelize');
 const sequelize = require('../sequelize');
 
-const Customer = sequelize.define('customers',{
+const Order = sequelize.define('orders',{
 	id:{
 		type: DataTypes.INTEGER(11),
 		allowNull: false,
 		primaryKey: true,
 		autoIncrement: true
 	},
-	name:{
-		type: DataTypes.STRING(100),
+	service_id:{
+		type: DataTypes.INTEGER(11),
 		allowNull: false,
+		primaryKey: false,
+		autoIncrement: false
+	},
+	service_type_id:{
+		type: DataTypes.INTEGER(11),
+		allowNull: false,
+		primaryKey: false,
+		autoIncrement: false
+	},
+	customer_id:{
+		type: DataTypes.INTEGER(11),
+		allowNull: false,
+		primaryKey: false,
+		autoIncrement: false
+	},
+	status:{
+		type: DataTypes.STRING(100),
+		allowNull: true,
 		primaryKey: false,
 		// autoIncrement: true
 	},
-	email:{
-		type: DataTypes.STRING(100),
-		allowNull: false,
-		primaryKey: false,
-		// autoIncrement: true
-	},
-	password:{
-		type: DataTypes.STRING(100),
-		allowNull: false,
-		primaryKey: false,
-		// autoIncrement: true
-	},
-	phoneno:{
-		type: DataTypes.STRING(100),
-		allowNull: false,
-		primaryKey: false,
-		// autoIncrement: true
-	},
-	image_url:{
+	payment_type:{
 		type: DataTypes.STRING(100),
 		allowNull: true,
 		primaryKey: false,
@@ -43,12 +43,7 @@ const Customer = sequelize.define('customers',{
       allowNull: false,
       defaultValue: '1'
     },
-    is_email_verify: {
-      type: DataTypes.INTEGER(1),
-      allowNull: false,
-      defaultValue: '1'
-    },
 
 });
 
-module.exports = Customer;
+module.exports = Order;
