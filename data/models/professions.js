@@ -20,18 +20,24 @@ const Profession = sequelize.define('professions',{
 		primaryKey: false,
 		// autoIncrement: true
 	},
+	password:{
+		type: DataTypes.STRING(100),
+		allowNull: false,
+		primaryKey: false,
+		// autoIncrement: true
+	},
 	services_known:{
 		type: DataTypes.STRING(500),
 		allowNull: true,
 		primaryKey: false,
 		// autoIncrement: true
 	},
-	// service_id:{
-	// 	type: DataTypes.INTEGER(11),
-	// 	allowNull: true,
-	// 	primaryKey: false,
-	// 	autoIncrement: false
-	// },
+	category_id:{
+		type: DataTypes.INTEGER(11),
+		allowNull: true,
+		primaryKey: false,
+		autoIncrement: false
+	},
 	city:{
 		type: DataTypes.STRING(100),
 		allowNull: true,

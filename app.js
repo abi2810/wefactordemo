@@ -125,6 +125,7 @@ app.post('/customersignup',upload.single('image_url'),async(req,res) => {
 
 // Customer Login
 app.post('/customerlogin', async(req,res) => {
+	console.log("Login request received")
 	if (req.body.email && req.body.password) 
 	{
 		const checkcustomer = await Customer.findOne({where: {email: req.body.email}})
@@ -142,18 +143,8 @@ app.post('/customerlogin', async(req,res) => {
 
 //  Professions Signup
 app.post('/professionsignup',async(req,res) => {
-	let profe = await Profession.create({name: req.body.name,phoneno: req.body.phoneno,services_known: req.body.services_known,city:"Chennai"})
+	let profe = await Profession.create({name: req.body.name,phoneno: req.body.phoneno,city:"Chennai",category_id: req.body.category_id})
 		if(profe){
-			console.log(req.body.services_known.split(','))
-			let serv = req.body.services_known.split(',')
-			let loopServ = serv.map(async(li) =>{
-				let servId = await Service.findOne({where:{name:li},attributes:['id']})
-				// console.log(servId)
-				let putServId = await ProfessionService.create({profession_id:profe.id,service_id:servId.id})
-			})
-			Promise.all(loopServ)
-			// let getServiceId = await Service.findAll({where:{name:}})
-			// let token = jwt.sign({id:customer.id}, secret, {expiresIn: 86400})
 			res.status(200).send({auth: true, message:"Thank you for signing up!"});
 		}else{
 			res.status(500).send({auth: false, message: "There was a problem registering the user"});
@@ -211,10 +202,12 @@ app.get('/allCategory',async(req,res) => {
 	if (req.headers.token) {
 		let getAllCat = await Category.findAll({attributes:['id','name','image_url']})
 		res.send({details:getAllCat})
+		//res.json(getAllCat)
 	}
 	else{
 		let getAllCat = await Category.findAll({attributes:['id','name','image_url']})
 		res.send({details:getAllCat})
+		//res.json(getAllCat)
 		// res.send('Provide token')
 	}
 })
@@ -246,18 +239,15 @@ app.post('/newService',async(req,res) => {
 })
 
 // Single Category List with details and its services
-app.get('/oneCategoryService',async(req,res) => {
+app.get('/oneCategoryService/:categoryId',async(req,res) => {
+	console.log("I'm in one category service",req.params.categoryId)
 	if (req.headers.token) {
-		if (req.query.categoryId) {
-			let getCat = await Category.findOne({where:{id: req.query.categoryId},attributes:['id','name','image_url','desc']})
+		if (req.params.categoryId) {
+			let getCat = await Category.findOne({where:{id: req.params.categoryId},attributes:['id','name','image_url','desc']})
 			if (getCat) {
-				let getAllServ = await Service.findAll({where:{categories_id: req.query.categoryId},attributes:['id','name','image_url']})
+				let getAllServ = await Service.findAll({where:{categories_id: req.params.categoryId},attributes:['id','name','image_url']})
 				// Professional details
-				let service_id = getAllServ.map(x => x.id)
-				let getProfServ = await ProfessionService.findAll({where:{service_id:{$in: service_id }}})
-				let profession_id = getProfServ.map(x => x.profession_id)
-				console.log(profession_id)
-				let profDet = await Profession.findAll({where:{id: profession_id}})
+				let profDet = await Profession.findAll({where:{category_id: req.params.categoryId}})
 				let hashCat = {}
 				hashCat['category'] = getCat
 				hashCat['service'] = getAllServ
@@ -268,16 +258,13 @@ app.get('/oneCategoryService',async(req,res) => {
 			res.send({message:"Please provide category Id"})
 		}
 	}else{
-		if (req.query.categoryId) {
-			let getCat = await Category.findOne({where:{id: req.query.categoryId},attributes:['id','name','image_url','desc']})
+		if (req.params.categoryId) {
+			let getCat = await Category.findOne({where:{id: req.params.categoryId},attributes:['id','name','image_url','desc']})
 			if (getCat) {
 				// Service Details
-				let getAllServ = await Service.findAll({where:{categories_id: req.query.categoryId},attributes:['id','name','image_url']})
+				let getAllServ = await Service.findAll({where:{categories_id: req.params.categoryId},attributes:['id','name','image_url']})
 				// Professional details
-				let service_id = getAllServ.map(x => x.id)
-				let getProfServ = await ProfessionService.findAll({where:{service_id:{$in: service_id }}})
-				let profession_id = getProfServ.map(x => x.id)
-				let profDet = await Profession.findAll({where:{id: profession_id}})
+				let profDet = await Profession.findAll({where:{category_id: req.params.categoryId}})
 				let hashCat = {}
 				hashCat['category'] = getCat
 				hashCat['service'] = getAllServ
@@ -311,12 +298,12 @@ app.post('/newServiceType',async(req,res) => {
 })
 
 // Single  Service List
-app.get('/oneService',async(req,res) => {
+app.get('/oneService/:serviceId',async(req,res) => {
 	if (req.headers.token) {
-		if (req.query.serviceId) {
-			let getServ = await Service.findOne({where:{id:req.query.serviceId}})
+		if (req.params.serviceId) {
+			let getServ = await Service.findOne({where:{id:req.params.serviceId}})
 			if (getServ) {
-				let getServType = await ServiceType.findAll({where:{service_id:req.query.serviceId}})
+				let getServType = await ServiceType.findAll({where:{service_id:req.params.serviceId}})
 				let hashServ = {}
 				hashServ['service'] = getServ
 				hashServ['service_type'] = getServType
@@ -327,10 +314,10 @@ app.get('/oneService',async(req,res) => {
 		}
 	}
 	else{
-		if (req.query.serviceId) {
-			let getServ = await Service.findOne({where:{id:req.query.serviceId}})
+		if (req.params.serviceId) {
+			let getServ = await Service.findOne({where:{id:req.params.serviceId}})
 			if (getServ) {
-				let getServType = await ServiceType.findAll({where:{service_id:req.query.serviceId}})
+				let getServType = await ServiceType.findAll({where:{service_id:req.params.serviceId}})
 				let hashServ = {}
 				hashServ['service'] = getServ
 				hashServ['service_type'] = getServType
@@ -400,6 +387,52 @@ app.get('/myCart',async(req,res) =>{
 		})
 		let loopResponse = await Promise.all(loopCart)
 		res.send({details:cartDet})
+	}
+})
+
+// Professions List
+app.get('/myJob',async(req,res) => {
+	if (req.query.phoneno) {
+		let checkProf = await Profession.findOne({where:{phoneno: req.query.phoneno}})
+		if (checkProf) {
+			let getJobList = await ProfessionOrder.findAll({where:{profession_id: checkProf.id}})
+			res.send({details:getJobList})
+		}else{
+			res.send({message:"Pofessional is not available in thi snumber."})
+		}
+	}else{
+		res.send({message:"Please provide phone number to proceed."})
+	}
+})
+
+// Orders List to Admin View
+app.get('/orderList',async(req,res) => {
+	if (req.headers.token) {
+		let adminId = jwt.verify(req.headers.token,secret) 
+		let checkAdmin = await Admin.findOne({where:{id:adminId.id}})
+		if (checkAdmin) {
+			let getOrders = await Order.findAll({where:{is_active:1}})
+			let loopOrder = await getOrders.map(async(li) => {
+				let getServname = await Service.findOne({where:{id: li.service_id},attributes:['name']})
+				let getServType = await ServiceType.findOne({where:{id:li.service_type_id},attributes:['name','price']})
+				li.dataValues['service_name'] = getServname.name
+				li.dataValues['service_type'] = getServType.name
+				li.dataValues['price'] = getServType.price
+				delete li.dataValues['service_id']
+				delete li.dataValues['service_type_id']
+				delete li.dataValues['createdAt']
+				delete li.dataValues['updatedAt']
+				// res.send(li)
+				// return li
+			})
+			let loopResponse = await Promise.all(loopOrder)
+			console.log(getOrders)
+			res.send({details:getOrders})
+		}else{
+			res.send({message:"You are not allowed to see this list."})
+		}
+	}else{
+		res.send({message:"Please provide token"})
 	}
 })
 
