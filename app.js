@@ -6,7 +6,7 @@ var ejs = require('ejs')
 // For password encryption
 const bcrypt = require('bcrypt');
 var bodyParser = require('body-parser')
-var passwordHash = require('password-hash'); 
+var passwordHash = require('password-hash');
 var jwt = require('jsonwebtoken');
 // var bcrypt = require('bcryptjs');
 var secret = 'supersecret';
@@ -30,12 +30,17 @@ app.use(bodyParser.urlencoded({
 }));
 app.use(bodyParser.json());
 
+//routes
+const v1 = require('./routes/v1');
+app.use('/v1', v1);
+
+
 // load models
-var Admin = require('./data/models/admin'); 
-var Category = require('./data/models/categories'); 
-var Customer = require('./data/models/customers'); 
-var Service = require('./data/models/services'); 
-var ServiceType = require('./data/models/service_type'); 
+var Admin = require('./data/models/admin');
+var Category = require('./data/models/categories');
+var Customer = require('./data/models/customers');
+var Service = require('./data/models/services');
+var ServiceType = require('./data/models/service_type');
 var Profession = require('./data/models/professions');
 var Order = require('./data/models/orders');
 var ProfessionOrder = require('./data/models/profession_order');
@@ -45,37 +50,38 @@ app.get('/hello', (req,res)=>{
 	res.send({msg:'Hello World  Checking'})
 });
 
-// Admin Signup
-app.post('/adminsignup',async(req,res) => {
-	const body = req.body
-	let hashedPassword = bcrypt.hashSync(req.body.password,8)
-	let admin = await Admin.create({name: req.body.name, email: req.body.email, password: hashedPassword})
-	if(admin){
-		let token = jwt.sign({id:admin.id}, secret, {expiresIn: 86400})
-		res.status(200).send({auth: true, token: token});
-	}else{
-		res.status(500).send({auth: false, message: "There was a problem registering the user"});
-	}
-})
-
+// // Admin Signup
+// app.post('/adminsignup',async(req,res) => {
+// 	const body = req.body
+// 	let hashedPassword = bcrypt.hashSync(req.body.password,8)
+// 	let admin = await Admin.create({name: req.body.name, email: req.body.email, password: hashedPassword})
+// 	if(admin){
+// 		let token = jwt.sign({id:admin.id}, secret, {expiresIn: 86400})
+// 		res.status(200).send({auth: true, token: token});
+// 	}else{
+// 		res.status(500).send({auth: false, message: "There was a problem registering the user"});
+// 	}
+// })
+//
 // Admin Login
-app.post('/adminlogin', async(req,res) => {
-	if (req.body.email && req.body.password) 
-	{
-		const checkadmin = await Admin.findOne({where: {email: req.body.email}})
-		if (!checkadmin) { res.status(404).send({auth: false, message: "No user found"})}
-		var passwordIsValid = bcrypt.compareSync(req.body.password, checkadmin.password)
-		if (!passwordIsValid) { res.status(401).send({auth: false, message:"Check your password",token: null})}
-		var token = jwt.sign({id: checkadmin.id}, secret, { expiresIn: 86400 })
-		res.status(200).send({auth: true, message:"Login success", token: token})
-	}
-	else{
-		res.status(400).send({message:"Please provide the required parameters to login."})
-	}
-	
-})
+// app.post('/adminlogin', async(req,res) => {
+//   console.log(req)
+// 	if (req.body.email && req.body.password)
+// 	{
+// 		const checkadmin = await Admin.findOne({where: {email: req.body.email}})
+// 		if (!checkadmin) { res.status(404).send({auth: false, message: "No user found"})}
+// 		var passwordIsValid = bcrypt.compareSync(req.body.password, checkadmin.password)
+// 		if (!passwordIsValid) { res.status(401).send({auth: false, message:"Check your password",token: null})}
+// 		var token = jwt.sign({id: checkadmin.id}, secret, { expiresIn: 86400 })
+// 		res.status(200).send({auth: true, message:"Login success", token: token})
+// 	}
+// 	else{
+// 		res.status(400).send({message:"Please provide the required parameters to login."})
+// 	}
+//
+// })
 
-/** 
+/**
 * ### LogIn Middleware
 * @param { String } token as header from web admin.
 * @param { String } deviceid as header from mobile device.
@@ -83,7 +89,7 @@ app.post('/adminlogin', async(req,res) => {
 */
 function loginMiddleware(req,res,next) {
 	if (req.headers.token){
-		jwt.verify(req.headers.token,secret,function(err,decoded){ 
+		jwt.verify(req.headers.token,secret,function(err,decoded){
 		if (err) { return res.status(401).send({auth: false, message: 'Failed to authenticate token'})}
 		})
 	}
@@ -96,50 +102,50 @@ function loginMiddleware(req,res,next) {
 }
 
 
-//  Customer Signup
-app.post('/customersignup',upload.single('image_url'),async(req,res) => {
-	const body = req.body
-	if (req.file) {
-		let filename = req.file.path
-		let hashedPassword = bcrypt.hashSync(req.body.password,8)
-		let customer = await Customer.create({name: req.body.name, email: req.body.email, password: hashedPassword,phoneno: req.body.phoneno,image_url: filename})
-		if(customer){
-			let token = jwt.sign({id:customer.id}, secret, {expiresIn: 86400})
-			res.status(200).send({auth: true, token: token});
-		}else{
-			res.status(500).send({auth: false, message: "There was a problem registering the user"});
-		}
-	}
-	else{
-		let hashedPassword = bcrypt.hashSync(req.body.password,8)
-		let customer = await Customer.create({name: req.body.name, email: req.body.email, password: hashedPassword,phoneno: req.body.phoneno})
-		if(customer){
-			let token = jwt.sign({id:customer.id}, secret, {expiresIn: 86400})
-			res.status(200).send({auth: true, token: token});
-		}else{
-			res.status(500).send({auth: false, message: "There was a problem registering the user"});
-		}
-	}
-	
-})
-
-// Customer Login
-app.post('/customerlogin', async(req,res) => {
-	console.log("Login request received")
-	if (req.body.email && req.body.password) 
-	{
-		const checkcustomer = await Customer.findOne({where: {email: req.body.email}})
-		if (!checkcustomer) { res.status(404).send({auth: false, message: "No user found"})}
-		var passwordIsValid = bcrypt.compareSync(req.body.password, checkcustomer.password)
-		if (!passwordIsValid) { res.status(401).send({auth: false, message:"Check your password",token: null})}
-		var token = jwt.sign({id: checkcustomer.id}, secret, { expiresIn: 86400 })
-		res.status(200).send({auth: true, message:"Login success", token: token})
-	}
-	else{
-		res.status(400).send({message:"Please provide the required parameters to login."})
-	}
-	
-})
+// //  Customer Signup
+// app.post('/customersignup',upload.single('image_url'),async(req,res) => {
+// 	const body = req.body
+// 	if (req.file) {
+// 		let filename = req.file.path
+// 		let hashedPassword = bcrypt.hashSync(req.body.password,8)
+// 		let customer = await Customer.create({name: req.body.name, email: req.body.email, password: hashedPassword,phoneno: req.body.phoneno,image_url: filename})
+// 		if(customer){
+// 			let token = jwt.sign({id:customer.id}, secret, {expiresIn: 86400})
+// 			res.status(200).send({auth: true, token: token});
+// 		}else{
+// 			res.status(500).send({auth: false, message: "There was a problem registering the user"});
+// 		}
+// 	}
+// 	else{
+// 		let hashedPassword = bcrypt.hashSync(req.body.password,8)
+// 		let customer = await Customer.create({name: req.body.name, email: req.body.email, password: hashedPassword,phoneno: req.body.phoneno})
+// 		if(customer){
+// 			let token = jwt.sign({id:customer.id}, secret, {expiresIn: 86400})
+// 			res.status(200).send({auth: true, token: token});
+// 		}else{
+// 			res.status(500).send({auth: false, message: "There was a problem registering the user"});
+// 		}
+// 	}
+//
+// })
+//
+// // Customer Login
+// app.post('/customerlogin', async(req,res) => {
+// 	console.log("Login request received")
+// 	if (req.body.email && req.body.password)
+// 	{
+// 		const checkcustomer = await Customer.findOne({where: {email: req.body.email}})
+// 		if (!checkcustomer) { res.status(404).send({auth: false, message: "No user found"})}
+// 		var passwordIsValid = bcrypt.compareSync(req.body.password, checkcustomer.password)
+// 		if (!passwordIsValid) { res.status(401).send({auth: false, message:"Check your password",token: null})}
+// 		var token = jwt.sign({id: checkcustomer.id}, secret, { expiresIn: 86400 })
+// 		res.status(200).send({auth: true, message:"Login success", token: token})
+// 	}
+// 	else{
+// 		res.status(400).send({message:"Please provide the required parameters to login."})
+// 	}
+//
+// })
 
 //  Professions Signup
 app.post('/professionsignup',async(req,res) => {
@@ -149,7 +155,7 @@ app.post('/professionsignup',async(req,res) => {
 		}else{
 			res.status(500).send({auth: false, message: "There was a problem registering the user"});
 		}
-	
+
 })
 
 
@@ -186,7 +192,7 @@ app.post('/newCategory',upload.single('image_url'),async(req,res) =>{
 					res.status(500).send({message:'Something went wrong'})
 				}
 			}
-			
+
 		}
 		else{
 			res.status(200).send({message:'Already Available'})
@@ -327,11 +333,12 @@ app.get('/oneService/:serviceId',async(req,res) => {
 			res.send({message:"Please provide service id"})
 		}
 	}
-	
+
 })
 
 // Make an Order - Add to Cart
 app.post('/addtocart',async(req,res) => {
+	console.log("Req body",req)
 	if (req.headers.token) {
 		let customerId = jwt.verify(req.headers.token,secret)
 		let getCustomer = await Customer.findOne({where:{id: customerId.id,is_active:1,is_email_verify:1}})
@@ -352,7 +359,7 @@ app.post('/addtocart',async(req,res) => {
 				}else{
 					res.send({message:"No Professional is available!"})
 				}
-				
+
 			}
 			res.send({details:fetchOrder})
 
@@ -367,10 +374,10 @@ app.post('/addtocart',async(req,res) => {
 // Cart List
 app.get('/myCart',async(req,res) =>{
 	if (req.headers.token) {
-		let getCustomer = jwt.verify(req.headers.token,secret) 
+		let getCustomer = jwt.verify(req.headers.token,secret)
 		let customer_id = getCustomer.id
 		let cartDet = await Order.findAll({where:{customer_id:customer_id,status:"Professional is scheduled for your request"}})
-		
+
 		let loopCart = await cartDet.map(async(li) => {
 			// let hashDet = {}
 
@@ -408,7 +415,7 @@ app.get('/myJob',async(req,res) => {
 // Orders List to Admin View
 app.get('/orderList',async(req,res) => {
 	if (req.headers.token) {
-		let adminId = jwt.verify(req.headers.token,secret) 
+		let adminId = jwt.verify(req.headers.token,secret)
 		let checkAdmin = await Admin.findOne({where:{id:adminId.id}})
 		if (checkAdmin) {
 			let getOrders = await Order.findAll({where:{is_active:1}})
