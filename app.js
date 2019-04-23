@@ -45,41 +45,11 @@ var Profession = require('./data/models/professions');
 var Order = require('./data/models/orders');
 var ProfessionOrder = require('./data/models/profession_order');
 var ProfessionService = require('./data/models/profession_service');
+var Address = require('./data/models/address');
 
 app.get('/hello', (req,res)=>{
 	res.send({msg:'Hello World  Checking'})
 });
-
-// // Admin Signup
-// app.post('/adminsignup',async(req,res) => {
-// 	const body = req.body
-// 	let hashedPassword = bcrypt.hashSync(req.body.password,8)
-// 	let admin = await Admin.create({name: req.body.name, email: req.body.email, password: hashedPassword})
-// 	if(admin){
-// 		let token = jwt.sign({id:admin.id}, secret, {expiresIn: 86400})
-// 		res.status(200).send({auth: true, token: token});
-// 	}else{
-// 		res.status(500).send({auth: false, message: "There was a problem registering the user"});
-// 	}
-// })
-//
-// Admin Login
-// app.post('/adminlogin', async(req,res) => {
-//   console.log(req)
-// 	if (req.body.email && req.body.password)
-// 	{
-// 		const checkadmin = await Admin.findOne({where: {email: req.body.email}})
-// 		if (!checkadmin) { res.status(404).send({auth: false, message: "No user found"})}
-// 		var passwordIsValid = bcrypt.compareSync(req.body.password, checkadmin.password)
-// 		if (!passwordIsValid) { res.status(401).send({auth: false, message:"Check your password",token: null})}
-// 		var token = jwt.sign({id: checkadmin.id}, secret, { expiresIn: 86400 })
-// 		res.status(200).send({auth: true, message:"Login success", token: token})
-// 	}
-// 	else{
-// 		res.status(400).send({message:"Please provide the required parameters to login."})
-// 	}
-//
-// })
 
 /**
 * ### LogIn Middleware
@@ -101,51 +71,68 @@ function loginMiddleware(req,res,next) {
 	next()
 }
 
+// Customer Edit Profile
+app.put('/v1/editProfile',upload.single('image_url'), async(req,res) => {
+  let updateInfo;
+  let filename;
+  if (req.query.customerId) {
+    if (req.file && req.query.name) {
+      filename = req.file.path
+      updateInfo = await Customer.update({image_url:filename,name:req.query.name},{where:{id:req.query.customerId}})
+    }
+    else if(req.file){
+      filename = req.file.path
+      updateInfo = await Customer.update({image_url:filename},{where:{id:req.query.customerId}})
+    }
+    else{
+      updateInfo = await Customer.update({name:req.query.name},{where:{id:req.query.customerId}})
+    }
+    let fetchInfo = await Customer.findOne({where:{id:req.query.customerId},attributes:['id','name','email','phoneno','image_url']})
+    res.status(200).send({details:fetchInfo})
+  }
+  else{
+    res.status(401).send({message:"Please provide customer Id to update"})
+  }
+})
 
-// //  Customer Signup
-// app.post('/customersignup',upload.single('image_url'),async(req,res) => {
-// 	const body = req.body
-// 	if (req.file) {
-// 		let filename = req.file.path
-// 		let hashedPassword = bcrypt.hashSync(req.body.password,8)
-// 		let customer = await Customer.create({name: req.body.name, email: req.body.email, password: hashedPassword,phoneno: req.body.phoneno,image_url: filename})
-// 		if(customer){
-// 			let token = jwt.sign({id:customer.id}, secret, {expiresIn: 86400})
-// 			res.status(200).send({auth: true, token: token});
-// 		}else{
-// 			res.status(500).send({auth: false, message: "There was a problem registering the user"});
-// 		}
-// 	}
-// 	else{
-// 		let hashedPassword = bcrypt.hashSync(req.body.password,8)
-// 		let customer = await Customer.create({name: req.body.name, email: req.body.email, password: hashedPassword,phoneno: req.body.phoneno})
-// 		if(customer){
-// 			let token = jwt.sign({id:customer.id}, secret, {expiresIn: 86400})
-// 			res.status(200).send({auth: true, token: token});
-// 		}else{
-// 			res.status(500).send({auth: false, message: "There was a problem registering the user"});
-// 		}
-// 	}
-//
-// })
-//
-// // Customer Login
-// app.post('/customerlogin', async(req,res) => {
-// 	console.log("Login request received")
-// 	if (req.body.email && req.body.password)
-// 	{
-// 		const checkcustomer = await Customer.findOne({where: {email: req.body.email}})
-// 		if (!checkcustomer) { res.status(404).send({auth: false, message: "No user found"})}
-// 		var passwordIsValid = bcrypt.compareSync(req.body.password, checkcustomer.password)
-// 		if (!passwordIsValid) { res.status(401).send({auth: false, message:"Check your password",token: null})}
-// 		var token = jwt.sign({id: checkcustomer.id}, secret, { expiresIn: 86400 })
-// 		res.status(200).send({auth: true, message:"Login success", token: token})
-// 	}
-// 	else{
-// 		res.status(400).send({message:"Please provide the required parameters to login."})
-// 	}
-//
-// })
+//Add Address
+app.post('/newAddress',async(req,res) => {
+  let customerId;
+  if (req.headers.token) {
+    await jwt.verify(req.headers.token,secret,function(err,decoded){
+      customerId = decoded.id
+    })
+    let newAd = await Address.create({
+      customer_id: customerId,
+      house_flat_no: req.query.house_flat_no,
+      landmark: req.query.landmark,
+      type: req.query.type,
+      lat:req.query.lat,
+      lang:req.query.lang
+    });
+    let getAddress = await Address.findAll({where:{customer_id: customerId}})
+    res.status(200).send({details:getAddress})
+  }
+  else{
+    res.send({message:"Please provide token"})
+  }
+})
+
+// Address List
+app.get('/viewAddress',async(req,res) => {
+  let customerId;
+  if (req.headers.token) {
+    await jwt.verify(req.headers.token,secret,function(err,decoded){
+      customerId = decoded.id
+    })
+    let fetchAd = await Address.findAll({where:{customer_id:customerId}})
+    res.status(200).send({details:fetchAd})
+  }
+  else{
+    res.send({message:"Please provide token"})
+  }
+})
+
 
 //  Professions Signup
 app.post('/professionsignup',async(req,res) => {
@@ -161,6 +148,7 @@ app.post('/professionsignup',async(req,res) => {
 
 // Upload general image
 app.post('/uploadfile', upload.single('image_url'), function(req,res) {
+  console.log(req)
 	if (req.file) {
 		console.log('In Func')
 	}
@@ -333,7 +321,6 @@ app.get('/oneService/:serviceId',async(req,res) => {
 			res.send({message:"Please provide service id"})
 		}
 	}
-
 })
 
 // Make an Order - Add to Cart
@@ -442,6 +429,5 @@ app.get('/orderList',async(req,res) => {
 		res.send({message:"Please provide token"})
 	}
 })
-
 
 module.exports = app;
