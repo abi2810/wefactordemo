@@ -13,8 +13,9 @@ var secret = 'supersecret';
 
 var sequelize = require('sequelize');
 // Image upload destination
-var upload = multer({ dest: 'images/' })
+var upload = multer({ dest: 'public/images/' })
 
+const cors = require('cors')
 // create our Express app
 const app = express();
 app.set('view engine', 'ejs')
@@ -22,6 +23,10 @@ app.use(express.static('/images'))
 // app.use(bodyParser);
 // serves up static files from the public folder. Anything in public/ will just be served up as the file it is
 app.use(express.static(path.join(__dirname, 'public')));
+// app.use('/public',express.static(__dirname + '/images'))
+// put the HTML file containing your form in a directory named "public" (relative to where this script is located)
+// app.get("/", express.static(path.join(__dirname, "./public")));
+
 //logger
 app.use(morgan());
 // configure the app to use bodyParser()
@@ -29,7 +34,7 @@ app.use(bodyParser.urlencoded({
     extended: true
 }));
 app.use(bodyParser.json());
-
+app.use(cors())
 //routes
 const v1 = require('./routes/v1');
 app.use('/v1', v1);
@@ -44,7 +49,7 @@ var ServiceType = require('./data/models/service_type');
 var Profession = require('./data/models/professions');
 var Order = require('./data/models/orders');
 var ProfessionOrder = require('./data/models/profession_order');
-var ProfessionService = require('./data/models/profession_service');
+var ProfessionCategory = require('./data/models/profession_category');
 var Address = require('./data/models/address');
 
 app.get('/hello', (req,res)=>{
@@ -136,24 +141,37 @@ app.get('/viewAddress',async(req,res) => {
 
 //  Professions Signup
 app.post('/professionsignup',async(req,res) => {
-	let profe = await Profession.create({name: req.body.name,phoneno: req.body.phoneno,city:"Chennai",category_id: req.body.category_id})
-		if(profe){
-			res.status(200).send({auth: true, message:"Thank you for signing up!"});
-		}else{
-			res.status(500).send({auth: false, message: "There was a problem registering the user"});
-		}
-
+  if (req.body.name && req.body.phoneno && req.body.category_id) {
+    let categoryId = req.body.category_id
+    let checkProf = await Profession.findAll({where:{phoneno:req.body.phoneno,is_verify:1}})
+    console.log(checkProf)
+    if (checkProf.length === 0) {
+      let newprofessional = await Profession.create({name: req.body.name,phoneno: req.body.phoneno,city:"Chennai"})
+      let profession_id = newprofessional.id
+      let catLoop = await categoryId.map(async(id) =>{
+        let newProfCat = await ProfessionCategory.create({profession_id:profession_id,category_id:id})
+        console.log(newProfCat)
+      })
+      let responseLoop = await Promise.all(catLoop)
+      let fetchProf = await Profession.findOne({where:{id:profession_id}})
+      res.send(fetchProf)
+    }
+    else{
+      res.send({message:"You are already registered,Please login with your credentials provided by company."})
+    }
+  }
+  else{
+    res.status(401).send({message: "Please provide all the required arguments to continue!"});
+  }
 })
 
 
 // Upload general image
 app.post('/uploadfile', upload.single('image_url'), function(req,res) {
-  console.log(req)
-	if (req.file) {
-		console.log('In Func')
-	}
-	console.log('req')
-	console.log(req.file)
+  const host = req.host;
+  const filePath = req.protocol + "://" + host + '/' + req.file.path;
+  //home/tbc1/Documents/wefactordemo/images/1c09e54e680f964d678edcad97058889
+  console.log(filePath)
 	res.send(req.file)
 })
 
@@ -324,6 +342,21 @@ app.get('/oneService/:serviceId',async(req,res) => {
 })
 
 // Make an Order - Add to Cart
+// Allow customer to add to cart,when they click continue to select addresses ask them to logIn.
+app.post('/addtocart',async(req,res) => {
+  if (req.headers.token) {
+    let customerId = jwt.verify(req.headers.token,secret)
+    let getCustomer = await Customer.findOne({where:{id: customerId.id,is_active:1,is_email_verify:1}})
+    let newOrder = await Order.create({service_id: req.query.serviceId,service_type_id: req.query.serviceTypeId,customer_id: customerId.id})
+    if (newOrder) {
+
+    }
+  }
+  else{
+
+  }
+})
+
 app.post('/addtocart',async(req,res) => {
 	console.log("Req body",req)
 	if (req.headers.token) {

@@ -38,11 +38,29 @@ const Order = sequelize.define('orders',{
 		primaryKey: false,
 		// autoIncrement: true
 	},
-	is_active: {
+	schedule_date:{
+		type: DataTypes.DATE(100),
+		allowNull: true,
+		primaryKey: false,
+		// autoIncrement: true
+	},
+	schedule_time:{
+		type: DataTypes.TIME(100),
+		allowNull: true,
+		primaryKey: false,
+		// autoIncrement: true
+	},
+	is_added: {
       type: DataTypes.INTEGER(1),
       allowNull: false,
       defaultValue: '1'
-    },
+  },
+	is_active: {
+      type: DataTypes.INTEGER(1),
+      allowNull: false,
+      defaultValue: '0'
+  }
+
 
 });
 

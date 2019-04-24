@@ -14,6 +14,12 @@ const Profession = sequelize.define('professions',{
 		primaryKey: false,
 		// autoIncrement: true
 	},
+	email:{
+		type: DataTypes.STRING(100),
+		allowNull: true,
+		primaryKey: false,
+		// autoIncrement: true
+	},
 	phoneno:{
 		type: DataTypes.STRING(11),
 		allowNull: false,
@@ -22,7 +28,7 @@ const Profession = sequelize.define('professions',{
 	},
 	password:{
 		type: DataTypes.STRING(100),
-		allowNull: false,
+		allowNull: true,
 		primaryKey: false,
 		// autoIncrement: true
 	},
@@ -32,15 +38,9 @@ const Profession = sequelize.define('professions',{
 		primaryKey: false,
 		// autoIncrement: true
 	},
-	category_id:{
-		type: DataTypes.INTEGER(11),
-		allowNull: true,
-		primaryKey: false,
-		autoIncrement: false
-	},
 	city:{
 		type: DataTypes.STRING(100),
-		allowNull: true,
+		allowNull: false,
 		primaryKey: false,
 		// autoIncrement: true
 	},
@@ -48,12 +48,12 @@ const Profession = sequelize.define('professions',{
       type: DataTypes.INTEGER(1),
       allowNull: false,
       defaultValue: '1'
-    },
-    is_verify: {
+  },
+  is_verify: {
       type: DataTypes.INTEGER(1),
       allowNull: false,
-      defaultValue: '1'
-    }
+      defaultValue: '0'
+  }
 });
 
 module.exports = Profession;

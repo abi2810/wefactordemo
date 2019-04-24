@@ -1,14 +1,14 @@
 const DataTypes = require('sequelize');
 const sequelize = require('../sequelize');
 
-const ProfessionService = sequelize.define('profession_service',{
+const ProfessionCategory = sequelize.define('profession_categories',{
 	id:{
 		type: DataTypes.INTEGER(11),
 		allowNull: false,
 		primaryKey: true,
 		autoIncrement: true
 	},
-	service_id:{
+	category_id:{
 		type: DataTypes.INTEGER(11),
 		allowNull: false,
 		primaryKey: false,
@@ -20,8 +20,11 @@ const ProfessionService = sequelize.define('profession_service',{
 		primaryKey: false,
 		autoIncrement: false
 	},
-	
-
+	is_active: {
+      type: DataTypes.INTEGER(1),
+      allowNull: false,
+      defaultValue: '1'
+  }
 });
 
-module.exports = ProfessionService;
+module.exports = ProfessionCategory;
