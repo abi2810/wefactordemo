@@ -38,8 +38,20 @@ const Profession = sequelize.define('professions',{
 		primaryKey: false,
 		// autoIncrement: true
 	},
+	area:{
+		type: DataTypes.STRING(100),
+		allowNull: false,
+		primaryKey: false,
+		// autoIncrement: true
+	},
 	city:{
 		type: DataTypes.STRING(100),
+		allowNull: false,
+		primaryKey: false,
+		// autoIncrement: true
+	},
+	pincode:{
+		type: DataTypes.INTEGER(6),
 		allowNull: false,
 		primaryKey: false,
 		// autoIncrement: true

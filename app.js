@@ -141,12 +141,12 @@ app.get('/viewAddress',async(req,res) => {
 
 //  Professions Signup
 app.post('/professionsignup',async(req,res) => {
-  if (req.body.name && req.body.phoneno && req.body.category_id) {
+  if (req.body.name && req.body.phoneno && req.body.category_id && req.body.area && req.body.pincode) {
     let categoryId = req.body.category_id
     let checkProf = await Profession.findAll({where:{phoneno:req.body.phoneno,is_verify:1}})
     console.log(checkProf)
     if (checkProf.length === 0) {
-      let newprofessional = await Profession.create({name: req.body.name,phoneno: req.body.phoneno,city:"Chennai"})
+      let newprofessional = await Profession.create({name: req.body.name,phoneno: req.body.phoneno,area:req.body.area,pincode:req.body.pincode,city:"Chennai"})
       let profession_id = newprofessional.id
       let catLoop = await categoryId.map(async(id) =>{
         let newProfCat = await ProfessionCategory.create({profession_id:profession_id,category_id:id})
@@ -154,7 +154,7 @@ app.post('/professionsignup',async(req,res) => {
       })
       let responseLoop = await Promise.all(catLoop)
       let fetchProf = await Profession.findOne({where:{id:profession_id}})
-      res.send(fetchProf)
+      res.send({message:"Successfully registered.",details:fetchProf})
     }
     else{
       res.send({message:"You are already registered,Please login with your credentials provided by company."})
@@ -251,15 +251,26 @@ app.post('/newService',async(req,res) => {
 })
 
 // Single Category List with details and its services
-app.get('/oneCategoryService/:categoryId',async(req,res) => {
-	console.log("I'm in one category service",req.params.categoryId)
+app.get('/oneCategoryService',async(req,res) => {
+	// console.log("I'm in one category service",req.params.categoryId)
 	if (req.headers.token) {
-		if (req.params.categoryId) {
-			let getCat = await Category.findOne({where:{id: req.params.categoryId},attributes:['id','name','image_url','desc']})
+		if (req.query.categoryId) {
+			let getCat = await Category.findOne({where:{id: req.query.categoryId},attributes:['id','name','image_url','desc']})
 			if (getCat) {
-				let getAllServ = await Service.findAll({where:{categories_id: req.params.categoryId},attributes:['id','name','image_url']})
+				let getAllServ = await Service.findAll({where:{categories_id: req.query.categoryId},attributes:['id','name','image_url']})
 				// Professional details
-				let profDet = await Profession.findAll({where:{category_id: req.params.categoryId}})
+				let profCat = await ProfessionCategory.findAll({where:{category_id: req.query.categoryId}})
+        let professionId = await profCat.map(x => x.profession_id)
+        console.log(professionId)
+        let profDet = await Profession.findAll({
+          where:{
+            id:professionId,
+            is_active:1,
+            is_verify:1
+          },
+          attributes:['id','name','phoneno','city']
+        })
+        console.log(profDet)
 				let hashCat = {}
 				hashCat['category'] = getCat
 				hashCat['service'] = getAllServ
@@ -270,13 +281,13 @@ app.get('/oneCategoryService/:categoryId',async(req,res) => {
 			res.send({message:"Please provide category Id"})
 		}
 	}else{
-		if (req.params.categoryId) {
-			let getCat = await Category.findOne({where:{id: req.params.categoryId},attributes:['id','name','image_url','desc']})
+		if (req.query.categoryId) {
+			let getCat = await Category.findOne({where:{id: req.query.categoryId},attributes:['id','name','image_url','desc']})
 			if (getCat) {
 				// Service Details
-				let getAllServ = await Service.findAll({where:{categories_id: req.params.categoryId},attributes:['id','name','image_url']})
+				let getAllServ = await Service.findAll({where:{categories_id: req.query.categoryId},attributes:['id','name','image_url']})
 				// Professional details
-				let profDet = await Profession.findAll({where:{category_id: req.params.categoryId}})
+				let profDet = await Profession.findAll({where:{category_id: req.query.categoryId}})
 				let hashCat = {}
 				hashCat['category'] = getCat
 				hashCat['service'] = getAllServ
@@ -341,55 +352,119 @@ app.get('/oneService/:serviceId',async(req,res) => {
 	}
 })
 
+// Available Professionals list to select from cart
+app.get('/availableProfessions',async(req,res) => {
+  if(req.headers.token){
+    let getId = jwt.verify(req.headers.token,secret)
+    let checkCustomer = await Customer.findOne({where:{id:getId.id}})
+    if (req.query.pincode && req.query.serviceId) {
+      let getCat = await Service.findOne({where:{id:req.query.serviceId}})
+      let checkProfCat = await ProfessionCategory.findAll({where:{category_id:getCat.categories_id}})
+      let professionId = await checkProfCat.map(x => x.profession_id)
+      let getProf = await Profession.findAll({
+        where:{id:professionId,pincode:req.query.pincode,is_active:1,is_verify:1},
+        attributes:['id','name','phoneno','area','city','pincode','is_active','is_verify']
+      })
+      console.log(getProf)
+      if (getProf.length !== 0) {
+        res.send({details:getProf})
+      }
+      else{
+        res.send({message:"No professionals available here.Try again later."})
+      }
+    }
+    else{
+        res.send({message:"Please provide pincode to get know about professionals."})
+    }
+  }
+  else{
+      res.send({message:'Please provide token'})
+  }
+})
+
+
+
 // Make an Order - Add to Cart
 // Allow customer to add to cart,when they click continue to select addresses ask them to logIn.
 app.post('/addtocart',async(req,res) => {
   if (req.headers.token) {
     let customerId = jwt.verify(req.headers.token,secret)
     let getCustomer = await Customer.findOne({where:{id: customerId.id,is_active:1,is_email_verify:1}})
-    let newOrder = await Order.create({service_id: req.query.serviceId,service_type_id: req.query.serviceTypeId,customer_id: customerId.id})
-    if (newOrder) {
-
+    if (getCustomer) {
+      let newOrder = await Order.create({
+        service_id: req.query.serviceId,
+        service_type_id: req.query.serviceTypeId,
+        customer_id: customerId.id,
+        schedule_date: req.query.scheduleDate,
+        schedule_time: req.query.scheduleTime
+      })
+      if (newOrder && req.query.professionId && req.query.pincode) {
+        // let checkProf = await Profession.findOne({where:{id:req.query.professionId,pincode:req.query.pincode,is_active:1,is_verify:1}})
+        let checkProf = await Profession.findOne({where:{id:req.query.professionId,pincode:req.query.pincode}})
+        console.log(checkProf)
+        if (checkProf) {
+          let sheduleProf = await ProfessionOrder.create({order_id:newOrder.id,profession_id:req.query.professionId})
+          if (sheduleProf) {
+            let updateOrder = await Order.update({status:"Professional is scheduled for your request",is_active:1},{where:{id: newOrder.id}})
+            let updateProf = await ProfessionOrder.update({status:"Scheduled"},{where:{id: sheduleProf.id}})
+          }else{
+            res.send({message:"Problem in scheduling"})
+          }
+        }
+        else{
+          res.send({message:"No Profession found.Try again later."})
+        }
+      }else{
+        res.send({message:"Pincode is missing"})
+      }
+      res.send({deatils:newOrder})
+    }
+    else{
+        res.send({message:"No customer found."})
     }
   }
-  else{
-
-  }
+  // else{
+    // let newOrder = await Order.create({
+    //   service_id: req.query.serviceId,
+    //   service_type_id: req.query.serviceTypeId,
+    // })
+  // }
 })
 
-app.post('/addtocart',async(req,res) => {
-	console.log("Req body",req)
-	if (req.headers.token) {
-		let customerId = jwt.verify(req.headers.token,secret)
-		let getCustomer = await Customer.findOne({where:{id: customerId.id,is_active:1,is_email_verify:1}})
-		console.log(getCustomer)
-		let newOrder = await Order.create({service_id: req.query.serviceId,service_type_id: req.query.serviceTypeId,customer_id: customerId.id})
-		if (newOrder) {
-			let fetchOrder = await Order.findOne({where:{id: newOrder.id}})
-			if (fetchOrder && req.query.professionId) {
-				let checkProf = await Profession.findOne({where:{id:req.query.professionId}})
-				if (checkProf) {
-					let sheduleProf = await ProfessionOrder.create({order_id:newOrder.id,profession_id:req.query.professionId})
-					if (sheduleProf) {
-						let updateOrder = await Order.update({status:"Professional is scheduled for your request"},{where:{id: newOrder.id}})
-						let updateProf = await ProfessionOrder.update({status:"Scheduled"},{where:{id: sheduleProf.id}})
-					}else{
-						res.send({message:"Problem in scheduling"})
-					}
-				}else{
-					res.send({message:"No Professional is available!"})
-				}
-
-			}
-			res.send({details:fetchOrder})
-
-		}
-		// res.send({details:getCustomer})
-		// let token = jwt.sign({id:customer.id}, secret, {expiresIn: 86400})
-	}else{
-		res.send({message:"Please LogIn to continue!"})
-	}
-})
+// app.post('/addtocart',async(req,res) => {
+// 	console.log("Req body",req)
+// 	if (req.headers.token) {
+// 		let customerId = jwt.verify(req.headers.token,secret)
+// 		let getCustomer = await Customer.findOne({where:{id: customerId.id,is_active:1,is_email_verify:1}})
+// 		console.log(getCustomer)
+//     console.log(req.query)
+// 		let newOrder = await Order.create({service_id: req.query.serviceId,service_type_id: req.query.serviceTypeId,customer_id: customerId.id,schedule_date:req.query.scheduleDate,schedule_time:req.query.scheduleTime})
+// 		if (newOrder) {
+// 			let fetchOrder = await Order.findOne({where:{id: newOrder.id}})
+// 			if (fetchOrder && req.query.professionId) {
+// 				let checkProf = await Profession.findOne({where:{id:req.query.professionId}})
+// 				if (checkProf) {
+// 					let sheduleProf = await ProfessionOrder.create({order_id:newOrder.id,profession_id:req.query.professionId})
+// 					if (sheduleProf) {
+// 						let updateOrder = await Order.update({status:"Professional is scheduled for your request"},{where:{id: newOrder.id}})
+// 						let updateProf = await ProfessionOrder.update({status:"Scheduled"},{where:{id: sheduleProf.id}})
+// 					}else{
+// 						res.send({message:"Problem in scheduling"})
+// 					}
+// 				}else{
+// 					res.send({message:"No Professional is available!"})
+// 				}
+//
+// 			}
+// 			res.send({details:fetchOrder})
+//
+// 		}
+// 		// res.send({details:getCustomer})
+// 		// let token = jwt.sign({id:customer.id}, secret, {expiresIn: 86400})
+// 	}else{
+// 		res.send({message:"Please LogIn to continue!"})
+// 	}
+// })
 
 // Cart List
 app.get('/myCart',async(req,res) =>{

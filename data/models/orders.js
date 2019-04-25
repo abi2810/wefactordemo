@@ -39,13 +39,13 @@ const Order = sequelize.define('orders',{
 		// autoIncrement: true
 	},
 	schedule_date:{
-		type: DataTypes.DATE(100),
+		type: DataTypes.STRING(100),
 		allowNull: true,
 		primaryKey: false,
 		// autoIncrement: true
 	},
 	schedule_time:{
-		type: DataTypes.TIME(100),
+		type: DataTypes.STRING(100),
 		allowNull: true,
 		primaryKey: false,
 		// autoIncrement: true
