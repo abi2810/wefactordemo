@@ -27,7 +27,7 @@ const Order = sequelize.define('orders',{
 		autoIncrement: false
 	},
 	status:{
-		type: DataTypes.STRING(100),
+		type: DataTypes.STRING(1000),
 		allowNull: true,
 		primaryKey: false,
 		// autoIncrement: true

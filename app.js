@@ -10,6 +10,8 @@ var passwordHash = require('password-hash');
 var jwt = require('jsonwebtoken');
 // var bcrypt = require('bcryptjs');
 var secret = 'supersecret';
+// To send OTP
+const SendOtp = require('sendotp');
 
 var sequelize = require('sequelize');
 // Image upload destination
@@ -56,6 +58,7 @@ app.get('/hello', (req,res)=>{
 	res.send({msg:'Hello World  Checking'})
 });
 
+// ##ommon API's
 /**
 * ### LogIn Middleware
 * @param { String } token as header from web admin.
@@ -76,6 +79,16 @@ function loginMiddleware(req,res,next) {
 	next()
 }
 
+// Upload general image
+app.post('/uploadfile', upload.single('image_url'), function(req,res) {
+  const host = req.host;
+  const filePath = req.protocol + "://" + host + '/' + req.file.path;
+  //home/tbc1/Documents/wefactordemo/images/1c09e54e680f964d678edcad97058889
+  console.log(filePath)
+	res.send(req.file)
+})
+
+// ##CUSTOMER API's
 // Customer Edit Profile
 app.put('/v1/editProfile',upload.single('image_url'), async(req,res) => {
   let updateInfo;
@@ -138,7 +151,7 @@ app.get('/viewAddress',async(req,res) => {
   }
 })
 
-
+// ##PROFESSIONALS API
 //  Professions Signup
 app.post('/professionsignup',async(req,res) => {
   if (req.body.name && req.body.phoneno && req.body.category_id && req.body.area && req.body.pincode) {
@@ -165,15 +178,77 @@ app.post('/professionsignup',async(req,res) => {
   }
 })
 
-
-// Upload general image
-app.post('/uploadfile', upload.single('image_url'), function(req,res) {
-  const host = req.host;
-  const filePath = req.protocol + "://" + host + '/' + req.file.path;
-  //home/tbc1/Documents/wefactordemo/images/1c09e54e680f964d678edcad97058889
-  console.log(filePath)
-	res.send(req.file)
+// Professions LogIn
+app.post('/sendOTPtoProfessions',async(req,res,callback) =>{
+  const sendOtp = new SendOtp('AuthKey');
+  sendOtp.send('contactNumber', 'SenderId', callback);
+  // console.log(sendToProf)
+  res.send('Done')
 })
+
+// Professions job List
+app.get('/myJob',async(req,res) => {
+	if (req.query.phoneno) {
+		let checkProf = await Profession.findOne({where:{phoneno: req.query.phoneno}})
+		if (checkProf) {
+			let getJobList = await ProfessionOrder.findAll({where:{profession_id: checkProf.id}})
+			res.send({details:getJobList})
+		}else{
+			res.send({message:"Pofessional is not available in this number."})
+		}
+	}else{
+		res.send({message:"Please provide phone number to proceed."})
+	}
+})
+
+app.put('/jobAcceptRejectComplete',async(req,res) =>{
+  let updateOrderStatus
+  let updateProfstatus
+  if (req.query.phoneno && req.query.orderId){
+    let checkPro = await Profession.findOne({where:{phoneno:req.query.phoneno}})
+    if (!checkPro) {
+      res.send({message:"No professional is available in this number."})
+    }
+    let checkProfOrder = await ProfessionOrder.findOne({where:{profession_id:checkPro.id,order_id:req.query.orderId,is_active:1}})
+    if (checkProfOrder) {
+      // Start or Reject
+      if (req.query.jobAction === "Start") {
+          if (checkProfOrder.status === "Scheduled") {
+            updateOrderStatus = await Order.update({status:"Our Professional is at your place,hope you like the job we do :)"},{where:{id:req.query.orderId}})
+            updateProfstatus = await ProfessionOrder.update({status:"InProgress"},{where:{order_id:req.query.orderId}})
+          }
+      }
+      else if(req.query.jobAction === "Cancel"){
+        if (checkProfOrder.status === "Scheduled") {
+          updateOrderStatus = await Order.update({status:"Our Professional is refused to come to your place.Dont worry our technical people will assign another professional shortly."},{where:{id:req.query.orderId}})
+          updateProfstatus = await ProfessionOrder.update({status:"Cancelled"},{where:{order_id:req.query.orderId}})
+        }
+      }
+      // Finish Job
+      else if(req.query.jobAction === "Finish"){
+        console.log('in Finish')
+        if (checkProfOrder.status === "InProgress") {
+          updateOrderStatus = await Order.update({status:"Thank you for using out service.Hope you our professionals did their job good."},{where:{id:req.query.orderId}})
+          updateProfstatus = await ProfessionOrder.update({status:"Completed"},{where:{order_id:req.query.orderId}})
+        }
+        else{
+          res.send({message:"Without starting the job you cant finish it."})
+        }
+      }
+      let fetchProOrder = await ProfessionOrder.findOne({where:{order_id:req.query.orderId}})
+      console.log(fetchProOrder)
+      res.send(fetchProOrder)
+    }else{
+      res.send({message:"No Orders assigned for this profession."})
+    }
+  }
+  else{
+      res.send({message:"Please provide required arguments"})
+  }
+})
+
+
+
 
 // CATEGORY
 // Create the category from admin
@@ -492,19 +567,42 @@ app.get('/myCart',async(req,res) =>{
 	}
 })
 
-// Professions List
-app.get('/myJob',async(req,res) => {
-	if (req.query.phoneno) {
-		let checkProf = await Profession.findOne({where:{phoneno: req.query.phoneno}})
-		if (checkProf) {
-			let getJobList = await ProfessionOrder.findAll({where:{profession_id: checkProf.id}})
-			res.send({details:getJobList})
-		}else{
-			res.send({message:"Pofessional is not available in thi snumber."})
-		}
-	}else{
-		res.send({message:"Please provide phone number to proceed."})
-	}
+
+// Admin to reassign the professionals to an order.
+app.put('/assignProfession',async(req,res) => {
+  if (req.headers.token) {
+    let adminId = jwt.verify(req.headers.token,secret)
+    let checkAdmin = await Admin.findOne({where:{id:adminId.id}})
+    if (checkAdmin && req.query.orderId) {
+      let checkOrder = await Order.findOne({where:{id:req.query.orderId,is_added:1,is_active:0}})
+      if (checkOrder && req.query.professionId && req.query.pincode){
+        let checkProf = await Profession.findOne({where:{id:req.query.professionId,pincode:req.query.pincode}})
+        console.log(checkProf)
+        if (checkProf) {
+          let sheduleProf = await ProfessionOrder.create({order_id:req.query.orderId,profession_id:req.query.professionId})
+          if (sheduleProf) {
+              let updateOrder = await Order.update({status:"Professional is scheduled for your request",is_active:1},{where:{id: req.query.orderId}})
+              let updateProf = await ProfessionOrder.update({status:"Scheduled"},{where:{id: sheduleProf.id}})
+          }else{
+            res.send({message:"Problem in scheduling"})
+          }
+        }
+        else{
+          res.send({message:"No Profession found.Try again later."})
+        }
+        // res.send({details:checkOrder})
+        res.send({message:"Profession is assigned to the order" + req.query.orderId})
+      }
+      else{
+          res.send({message:"You are order is already placed."})
+      }
+    }
+    else{
+        res.send({message:"You are not allowed to do this action."})
+    }
+  }else{
+    res.send({message:"Please provide token to continue."})
+  }
 })
 
 // Orders List to Admin View

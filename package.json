@@ -27,6 +27,7 @@
     "nodemon": "^1.14.12",
     "password-hash": "^1.2.2",
     "path": "^0.12.7",
+    "sendotp": "^1.2.9",
     "sequelize": "^5.7.4",
     "underscore": "^1.9.1"
   }

@@ -26,7 +26,7 @@ const ProfessionOrder = sequelize.define('profession_order',{
 		primaryKey: false
 	},
 	status:{
-		type: DataTypes.STRING(100),
+		type: DataTypes.STRING(1000),
 		allowNull: true,
 		primaryKey: false,
 		// autoIncrement: true
