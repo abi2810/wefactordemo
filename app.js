@@ -179,12 +179,22 @@ app.post('/professionsignup',async(req,res) => {
 })
 
 // Professions LogIn
-app.post('/sendOTPtoProfessions',async(req,res,callback) =>{
-  const sendOtp = new SendOtp('AuthKey');
-  sendOtp.send('contactNumber', 'SenderId', callback);
-  // console.log(sendToProf)
-  res.send('Done')
-})
+// app.post('/sendOTPtoProfessions',async(req,res,callback) =>{
+//   const sendOtp = new SendOtp('274087AEoyZNYk5cc2deeb');
+//   let result = await sendOtp.send('9994879415', '611332', function async(err, data, callback){
+//     console.log(data)
+//     if (data.type === "Success") {
+//       res.send({message:"OTP has sent your registerd number"})
+//     }
+//     else{
+//       sendOtp.retry("9994879415", false, function async(error, data) {
+//         console.log(data);
+//       });
+//     }
+//   });
+//   console.log(callback)
+//   res.send('Done')
+// })
 
 // Professions job List
 app.get('/myJob',async(req,res) => {
